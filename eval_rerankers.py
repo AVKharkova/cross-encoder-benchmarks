@@ -68,8 +68,7 @@ MODELS = [
     {"name": "cross-encoder/ms-marco-MiniLM-L-6-v2", "size": "~90 MB"},
     {"name": "DiTy/cross-encoder-russian-msmarco", "size": "~400 MB"},
     {"name": "BAAI/bge-reranker-v2-m3", "size": "~2.2 GB"},
-    # Qwen закомментирован, так как для него требуется библиотека FlagEmbedding
-    # {"name": "Alibaba-NLP/gte-Qwen2-1.5B-instruct", "size": "~3.5 GB", "kwargs": {"trust_remote_code": True}}
+    {"name": "Alibaba-NLP/gte-Qwen2-1.5B-instruct", "size": "~3.5 GB", "use_flag_embedding": True}
 ]
 
 # --- 3. Логика тестирования ---
@@ -84,7 +83,11 @@ def evaluate_models():
             kwargs = model_info.get("kwargs", {})
             # Загрузка модели
             start_load = time.time()
-            model = CrossEncoder(model_name, max_length=512, **kwargs)
+            if model_info.get("use_flag_embedding"):
+                from FlagEmbedding import FlagReranker
+                model = FlagReranker(model_name, use_fp16=True)
+            else:
+                model = CrossEncoder(model_name, max_length=512, **kwargs)
             load_time = time.time() - start_load
             logging.info(f"Модель загружена за {load_time:.2f} сек.")
             
@@ -102,7 +105,10 @@ def evaluate_models():
                 
                 # Замеряем время инференса
                 start_infer = time.time()
-                scores = model.predict(pairs)
+                if model_info.get("use_flag_embedding"):
+                    scores = model.compute_score(pairs)
+                else:
+                    scores = model.predict(pairs)
                 infer_time = time.time() - start_infer
                 latencies.append(infer_time)
                 
